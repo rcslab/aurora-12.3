@@ -117,6 +117,8 @@ static boolean_t vm_object_page_remove_write(vm_page_t p, int flags,
 static void	vm_object_qcollapse(vm_object_t object);
 static void	vm_object_vndeallocate(vm_object_t object);
 
+uint64_t object_ids = OBJID_START;
+
 /*
  *	Virtual memory objects maintain the actual data
  *	associated with allocated virtual memory.  A given
@@ -173,6 +175,19 @@ SYSINIT(object_counters, SI_SUB_CPU, SI_ORDER_ANY, counter_startup, NULL);
 static uma_zone_t obj_zone;
 
 static int vm_object_zinit(void *mem, int size, int flags);
+static void vm_object_zctor(void *mem, int size, void *arg);
+
+static int
+vm_object_zctor(void *mem, int size, void *args, int flags)
+{
+       vm_object_t object;
+
+       object = (vm_object_t)mem;
+       object->objid = atomic_fetchadd_64(&object_ids, 0x1);
+
+       return(0);
+}
+
 
 #ifdef INVARIANTS
 static void vm_object_zdtor(void *mem, int size, void *arg);
@@ -314,7 +329,7 @@ vm_object_init(void)
 	 * to vm_pageout_fallback_object_lock locking a vm object
 	 * without holding any references to it.
 	 */
-	obj_zone = uma_zcreate("VM OBJECT", sizeof (struct vm_object), NULL,
+	obj_zone = uma_zcreate("VM OBJECT", sizeof (struct vm_object), vm_object_ctor,
 #ifdef INVARIANTS
 	    vm_object_zdtor,
 #else

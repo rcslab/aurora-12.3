@@ -111,6 +111,7 @@ struct vm_object {
 	objtype_t type;			/* type of pager */
 	u_int flags;			/* see below */
 	u_short pg_color;		/* (c) color of first page in obj */
+	uint64_t objid;			/* (c) Unique object ID */
 	u_int paging_in_progress;	/* Paging (in or out) so don't collapse or destroy */
 	int resident_page_count;	/* number of resident pages */
 	struct vm_object *backing_object; /* object that I'm a shadow of */
@@ -224,6 +225,12 @@ struct vm_object {
 #define OBJPC_SYNC	0x1			/* sync I/O */
 #define OBJPC_INVAL	0x2			/* invalidate */
 #define OBJPC_NOSYNC	0x4			/* skip if VPO_NOSYNC */
+
+/*
+ * The start of the unique object ID counter.
+ */
+#define OBJID_START    (0x5151515151515151ULL)
+#define OBJID_MASK     (0x000fffffffffffffULL)
 
 /*
  * The following options are supported by vm_object_page_remove().
