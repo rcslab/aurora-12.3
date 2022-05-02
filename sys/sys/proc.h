@@ -368,6 +368,7 @@ struct thread {
 	int		td_oncpu;	/* (t) Which cpu we are on. */
 	void		*td_lkpi_task;	/* LinuxKPI task struct pointer */
 	int		td_pmcpend;
+	uint64_t	td_oldtid;	/* (c) Old thread ID. */
 #ifdef __amd64__
 	struct mdthread td_md;		/* (k) Any machine-dependent fields. */
 #endif
@@ -697,6 +698,8 @@ struct proc {
 	LIST_HEAD(, proc) p_orphans;	/* (e) Pointer to list of orphans. */
 	uint32_t	p_fctl0;	/* (x) ABI feature control, ELF note */
 	u_int		p_amd64_md_flags; /* (c) md process flags P_MD */
+	uint64_t        p_auroid;       /* (c) Aurora partition ID */
+	LIST_ENTRY(proc) p_aurlist;     /* (c) List of Aurora processes. */
 };
 
 #define	p_session	p_pgrp->pg_session
