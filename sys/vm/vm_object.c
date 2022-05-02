@@ -175,7 +175,7 @@ SYSINIT(object_counters, SI_SUB_CPU, SI_ORDER_ANY, counter_startup, NULL);
 static uma_zone_t obj_zone;
 
 static int vm_object_zinit(void *mem, int size, int flags);
-static void vm_object_zctor(void *mem, int size, void *arg);
+static int vm_object_zctor(void *mem, int size, void *arg, int flags);
 
 static int
 vm_object_zctor(void *mem, int size, void *args, int flags)
@@ -329,7 +329,7 @@ vm_object_init(void)
 	 * to vm_pageout_fallback_object_lock locking a vm object
 	 * without holding any references to it.
 	 */
-	obj_zone = uma_zcreate("VM OBJECT", sizeof (struct vm_object), vm_object_ctor,
+	obj_zone = uma_zcreate("VM OBJECT", sizeof (struct vm_object), vm_object_zctor,
 #ifdef INVARIANTS
 	    vm_object_zdtor,
 #else
@@ -2143,7 +2143,8 @@ vm_object_collapse_aurora(vm_object_t object)
        LIST_FOREACH_SAFE(robject, &object->shadow_head, shadow_list, temp) {
                VM_OBJECT_ASSERT_LOCKED(robject);
                KASSERT(robject->backing_object == object,
-                   robject->backing_object));
+		    ("obj %p has child %p with parent %p", object, robject,
+		    robject->backing_object));
 
                LIST_REMOVE(robject, shadow_list);
                object->shadow_count--;
