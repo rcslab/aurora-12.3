@@ -246,6 +246,10 @@ int	pwd_chroot(struct thread *td, struct vnode *vp);
 int	pwd_chroot_chdir(struct thread *td, struct vnode *vp);
 void	pwd_ensure_dirs(void);
 
+int fdisused(struct filedesc *fdp, int fd);
+void fdused(struct filedesc *fdp, int fd);
+void fdunused(struct filedesc *fdp, int fd);
+
 #endif /* _KERNEL */
 
 #endif /* !_SYS_FILEDESC_H_ */
