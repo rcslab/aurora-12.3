@@ -109,7 +109,7 @@ struct vm_object {
 	int shadow_count;		/* how many objects that this is a shadow for */
 	vm_memattr_t memattr;		/* default memory attribute for pages */
 	objtype_t type;			/* type of pager */
-	u_short flags;			/* see below */
+	u_int flags;			/* see below */
 	u_short pg_color;		/* (c) color of first page in obj */
 	u_int paging_in_progress;	/* Paging (in or out) so don't collapse or destroy */
 	int resident_page_count;	/* number of resident pages */
@@ -205,6 +205,7 @@ struct vm_object {
 #define	OBJ_ONEMAPPING	0x2000		/* One USE (a single, non-forked) mapping flag */
 #define	OBJ_DISCONNECTWNT 0x4000	/* disconnect from vnode wanted */
 #define	OBJ_TMPFS	0x8000		/* has tmpfs vnode allocated */
+#define	OBJ_AURORA	0x10000		/* is backed by Aurora */
 
 /*
  * Helpers to perform conversion between vm_object page indexes and offsets.
@@ -354,6 +355,8 @@ boolean_t vm_object_sync(vm_object_t, vm_ooffset_t, vm_size_t, boolean_t,
 void vm_object_unwire(vm_object_t object, vm_ooffset_t offset,
     vm_size_t length, uint8_t queue);
 struct vnode *vm_object_vnode(vm_object_t object);
+void vm_object_collapse_aurora(vm_object_t object);
+
 #endif				/* _KERNEL */
 
 #endif				/* _VM_OBJECT_ */
