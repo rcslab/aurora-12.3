@@ -5710,7 +5710,18 @@ setpte:
 	CTR2(KTR_PMAP, "pmap_promote_pde: success for va %#lx"
 	    " in pmap %p", va, pmap);
 }
+
+#else /* VM_NRESERVLEVEL > 0 */
+
+static bool
+pmap_pde_ept_executable(pmap_t pmap, pd_entry_t pde)
+{
+	return (false);
+}
+
 #endif /* VM_NRESERVLEVEL > 0 */
+
+
 
 /*
  *	Insert the given physical page (p) at
