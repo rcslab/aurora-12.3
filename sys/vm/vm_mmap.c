@@ -1322,6 +1322,82 @@ done:
 	return (error);
 }
 
+
+/*
+ * vm_mmap_vnode()
+ *
+ * Helper function for vm_mmap.  Perform sanity check specific for mmap
+ * operations on vnodes.
+ */
+int
+vm_mmap_vnode_aurora(struct thread *td, vm_size_t objsize,
+    vm_prot_t prot, vm_prot_t *maxprotp, int *flagsp,
+    struct vnode *vp, vm_ooffset_t *foffp, vm_object_t *objp,
+    boolean_t *writecounted)
+{
+	vm_object_t obj;
+	vm_ooffset_t foff;
+	struct ucred *cred;
+	int error, flags;
+	bool writex;
+
+	cred = td->td_ucred;
+	writex = (*maxprotp & VM_PROT_WRITE) != 0 &&
+	    (*flagsp & MAP_SHARED) != 0;
+	AUDIT_ARG_VNODE1(vp);
+	foff = *foffp;
+	flags = *flagsp;
+	obj = vp->v_object;
+	if (vp->v_type == VREG) {
+		/*
+		 * Get the proper underlying object
+		 */
+		if (obj == NULL) {
+			error = EINVAL;
+			goto done;
+		}
+		if (obj->type == OBJT_VNODE)
+			KASSERT(obj->handle == vp, ("diassociated vp for object"));
+		if (writex) {
+			*writecounted = TRUE;
+			VOP_LOCK(vp, LK_EXCLUSIVE);
+			vm_pager_update_writecount(obj, 0, objsize);
+			VOP_UNLOCK(vp, 0);
+		}
+	} else {
+		error = EINVAL;
+		goto done;
+	}
+
+	if (obj->type == OBJT_VNODE) {
+		VM_OBJECT_WLOCK(obj);
+		obj->ref_count++;
+		VM_OBJECT_WUNLOCK(obj);
+		vrefact(vp);
+	} else {
+		KASSERT(obj->type == OBJT_DEFAULT || obj->type == OBJT_SWAP,
+		    ("wrong object type"));
+		VM_OBJECT_WLOCK(obj);
+		vm_object_reference_locked(obj);
+#if VM_NRESERVLEVEL > 0
+		vm_object_color(obj, 0);
+#endif
+		VM_OBJECT_WUNLOCK(obj);
+	}
+	*objp = obj;
+	*flagsp = flags;
+
+	error = 0;
+done:
+	if (error != 0 && *writecounted) {
+		*writecounted = FALSE;
+		VOP_LOCK(vp, LK_EXCLUSIVE);
+		vm_pager_update_writecount(obj, objsize, 0);
+		VOP_UNLOCK(vp, 0);
+	}
+	return (error);
+}
+
 /*
  * vm_mmap_cdev()
  *

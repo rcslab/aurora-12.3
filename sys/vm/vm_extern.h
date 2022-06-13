@@ -107,6 +107,8 @@ int vm_mmap_cdev(struct thread *, vm_size_t, vm_prot_t, vm_prot_t *,
     int *, struct cdev *, struct cdevsw *, vm_ooffset_t *, vm_object_t *);
 int vm_mmap_vnode(struct thread *, vm_size_t, vm_prot_t, vm_prot_t *, int *,
     struct vnode *, vm_ooffset_t *, vm_object_t *, boolean_t *);
+int vm_mmap_vnode_aurora(struct thread *, vm_size_t, vm_prot_t, vm_prot_t *, int *,
+    struct vnode *, vm_ooffset_t *, vm_object_t *, boolean_t *);
 void vm_set_page_size(void);
 void vm_sync_icache(vm_map_t, vm_offset_t, vm_size_t);
 typedef int (*pmap_pinit_t)(struct pmap *pmap);
@@ -130,5 +132,10 @@ u_int vm_active_count(void);
 u_int vm_inactive_count(void);
 u_int vm_laundry_count(void);
 u_int vm_wait_count(void);
+
+struct file;
+int vn_mmap_aurora(struct file *fp, vm_map_t map, vm_offset_t *addr, vm_size_t size,
+    vm_prot_t prot, vm_prot_t cap_maxprot, int flags, vm_ooffset_t foff, struct thread *td);
+
 #endif				/* _KERNEL */
 #endif				/* !_VM_EXTERN_H_ */
