@@ -2083,7 +2083,7 @@ v_inval_buf_range_locked(struct vnode *vp, struct bufobj *bo,
 	return (0);
 }
 
-static void
+void
 buf_vlist_remove(struct buf *bp)
 {
 	struct bufv *bv;
@@ -2112,7 +2112,7 @@ buf_vlist_remove(struct buf *bp)
  *
  * NOTE: xflags is passed as a constant, optimizing this inline function!
  */
-static void
+void
 buf_vlist_add(struct buf *bp, struct bufobj *bo, b_xflags_t xflags)
 {
 	struct bufv *bv;
@@ -2270,7 +2270,7 @@ static struct kproc_desc up_kp = {
 };
 SYSINIT(syncer, SI_SUB_KTHREAD_UPDATE, SI_ORDER_FIRST, kproc_start, &up_kp);
 
-static int
+static int __noinline
 sync_vnode(struct synclist *slp, struct bufobj **bo, struct thread *td)
 {
 	struct vnode *vp;
