@@ -154,6 +154,8 @@ int		 pmap_page_wired_mappings(vm_page_t m);
 int		 pmap_pinit(pmap_t);
 void		 pmap_pinit0(pmap_t);
 void		 pmap_protect(pmap_t, vm_offset_t, vm_offset_t, vm_prot_t);
+size_t		 pmap_protect_relaxed(pmap_t, vm_offset_t, vm_offset_t, vm_prot_t);
+size_t		 pmap_protect_page(pmap_t, vm_offset_t, vm_prot_t);
 void		 pmap_qenter(vm_offset_t, vm_page_t *, int);
 void		 pmap_qremove(vm_offset_t, int);
 vm_offset_t	 pmap_quick_enter_page(vm_page_t);

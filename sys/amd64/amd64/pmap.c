@@ -5569,6 +5569,219 @@ retry:
 	PMAP_UNLOCK(pmap);
 }
 
+/*
+ *	Set the physical protection on the
+ *	specified range of this map as requested.
+ */
+size_t
+pmap_protect_relaxed(pmap_t pmap, vm_offset_t sva, vm_offset_t eva, vm_prot_t prot)
+{
+	vm_offset_t va_next;
+	pml4_entry_t *pml4e;
+	pdp_entry_t *pdpe;
+	pd_entry_t ptpaddr, *pde;
+	pt_entry_t *pte, PG_G, PG_M, PG_RW, PG_V;
+	size_t changed = 0;
+
+	KASSERT((prot & ~VM_PROT_ALL) == 0, ("invalid prot %x", prot));
+	KASSERT((prot != VM_PROT_NONE), ("unexpected PROT_NONE"));
+
+	if ((prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) ==
+	    (VM_PROT_WRITE|VM_PROT_EXECUTE))
+		return (0);
+
+	PG_G = pmap_global_bit(pmap);
+	PG_M = pmap_modified_bit(pmap);
+	PG_V = pmap_valid_bit(pmap);
+	PG_RW = pmap_rw_bit(pmap);
+
+	/*
+	 * Although this function delays and batches the invalidation
+	 * of stale TLB entries, it does not need to call
+	 * pmap_delayed_invl_start() and
+	 * pmap_delayed_invl_finish(), because it does not
+	 * ordinarily destroy mappings.  Stale TLB entries from
+	 * protection-only changes need only be invalidated before the
+	 * pmap lock is released, because protection-only changes do
+	 * not destroy PV entries.  Even operations that iterate over
+	 * a physical page's PV list of mappings, like
+	 * pmap_remove_write(), acquire the pmap lock for each
+	 * mapping.  Consequently, for protection-only changes, the
+	 * pmap lock suffices to synchronize both page table and TLB
+	 * updates.
+	 *
+	 * This function only destroys a mapping if pmap_demote_pde()
+	 * fails.  In that case, stale TLB entries are immediately
+	 * invalidated.
+	 */
+	
+	for (; sva < eva; sva = va_next) {
+
+		pml4e = pmap_pml4e(pmap, sva);
+		if ((*pml4e & PG_V) == 0) {
+			va_next = (sva + NBPML4) & ~PML4MASK;
+			if (va_next < sva)
+				va_next = eva;
+			continue;
+		}
+
+		pdpe = pmap_pml4e_to_pdpe(pml4e, sva);
+		if ((*pdpe & PG_V) == 0) {
+			va_next = (sva + NBPDP) & ~PDPMASK;
+			if (va_next < sva)
+				va_next = eva;
+			continue;
+		}
+
+		va_next = (sva + NBPDR) & ~PDRMASK;
+		if (va_next < sva)
+			va_next = eva;
+
+		pde = pmap_pdpe_to_pde(pdpe, sva);
+		ptpaddr = *pde;
+
+		/*
+		 * Weed out invalid mappings.
+		 */
+		if (ptpaddr == 0)
+			continue;
+
+		/*
+		 * Check for large page.
+		 */
+		if ((ptpaddr & PG_PS) != 0)
+			panic("Unexpected superpage");
+
+		if (va_next > eva)
+			va_next = eva;
+
+		for (pte = pmap_pde_to_pte(pde, sva); sva != va_next; pte++,
+		    sva += PAGE_SIZE) {
+			pt_entry_t obits, pbits;
+
+retry:
+			obits = pbits = *pte;
+			if ((pbits & PG_V) == 0)
+				continue;
+
+			if ((prot & VM_PROT_WRITE) == 0)
+				pbits &= ~(PG_RW | PG_M);
+
+			if ((prot & VM_PROT_EXECUTE) == 0)
+				pbits |= pg_nx;
+
+			if (pbits != obits) {
+				pt_entry_t old = *pte;
+				*pte = pbits;
+				if (old != obits)
+					goto retry;
+				if (obits & PG_G)
+					panic("Unexpected global pmap");
+				else
+					changed += 1;
+
+			}
+		}
+	}
+
+	return (changed);
+}
+
+/*
+ *	Set the physical protection on the
+ *	specified range of this map as requested.
+ */
+size_t
+pmap_protect_page(pmap_t pmap, vm_offset_t sva, vm_prot_t prot)
+{
+	pml4_entry_t *pml4e;
+	pdp_entry_t *pdpe;
+	pd_entry_t ptpaddr, *pde;
+	pt_entry_t *pte, PG_G, PG_M, PG_RW, PG_V;
+	pt_entry_t obits, pbits;
+	size_t changed = 0;
+
+	KASSERT((prot & ~VM_PROT_ALL) == 0, ("invalid prot %x", prot));
+	if (prot == VM_PROT_NONE) {
+		panic("Unexpected VM_PROT_NONE");
+	}
+
+	if ((prot & (VM_PROT_WRITE|VM_PROT_EXECUTE)) ==
+	    (VM_PROT_WRITE|VM_PROT_EXECUTE))
+		return (0);
+
+	PG_G = pmap_global_bit(pmap);
+	PG_M = pmap_modified_bit(pmap);
+	PG_V = pmap_valid_bit(pmap);
+	PG_RW = pmap_rw_bit(pmap);
+
+	/*
+	 * Although this function delays and batches the invalidation
+	 * of stale TLB entries, it does not need to call
+	 * pmap_delayed_invl_start() and
+	 * pmap_delayed_invl_finish(), because it does not
+	 * ordinarily destroy mappings.  Stale TLB entries from
+	 * protection-only changes need only be invalidated before the
+	 * pmap lock is released, because protection-only changes do
+	 * not destroy PV entries.  Even operations that iterate over
+	 * a physical page's PV list of mappings, like
+	 * pmap_remove_write(), acquire the pmap lock for each
+	 * mapping.  Consequently, for protection-only changes, the
+	 * pmap lock suffices to synchronize both page table and TLB
+	 * updates.
+	 *
+	 * This function only destroys a mapping if pmap_demote_pde()
+	 * fails.  In that case, stale TLB entries are immediately
+	 * invalidated.
+	 */
+	
+
+	pml4e = pmap_pml4e(pmap, sva);
+	if ((*pml4e & PG_V) == 0)
+		return (0);
+
+	pdpe = pmap_pml4e_to_pdpe(pml4e, sva);
+	if ((*pdpe & PG_V) == 0)
+		return (0);
+
+	pde = pmap_pdpe_to_pde(pdpe, sva);
+	ptpaddr = *pde;
+
+	/*
+	 * Weed out invalid mappings.
+	 */
+	if (ptpaddr == 0)
+		return (0);
+
+	/*
+	 * Check for large page.
+	 */
+	if ((ptpaddr & PG_PS) != 0)
+		panic("Unexpected superpage");
+
+	pte = pmap_pde_to_pte(pde, sva); 
+
+	obits = pbits = *pte;
+	if ((pbits & PG_V) == 0)
+		return (0);
+
+	if (obits & PG_G)
+		panic("Unexpected global pmap");
+
+	if ((prot & VM_PROT_WRITE) == 0)
+		pbits &= ~(PG_RW | PG_M);
+
+	if ((prot & VM_PROT_EXECUTE) == 0)
+		pbits |= pg_nx;
+
+	if (pbits != obits) {
+		*pte = pbits;
+		changed += 1;
+	}
+
+	return (changed);
+}
+
 #if VM_NRESERVLEVEL > 0
 static bool
 pmap_pde_ept_executable(pmap_t pmap, pd_entry_t pde)
