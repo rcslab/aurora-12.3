@@ -92,11 +92,6 @@ options         DDB
 options         DDB_NUMSYM
 options         GDB
 
-# KTR
-options		KTR
-options		ALQ
-options         KTR_ALQ
-
 # Kernel dump features.
 options 	EKCD			# Support for encrypted kernel dumps
 options 	GZIO			# gzip-compressed kernel and user dumps
