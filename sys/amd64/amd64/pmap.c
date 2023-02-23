@@ -166,6 +166,58 @@ __FBSDID("$FreeBSD$");
 #include <machine/sysarch.h>
 #include <machine/tss.h>
 
+void
+pmap_tracebuf_init(pmap_t pmap, size_t size)
+{
+	struct pmap_tracebuf *pmt = &pmap->pm_tracebuf;
+
+	if (pmt->pmt_size != 0)
+		panic("Tracebuf already active");
+
+	pmt->pmt_index = 0;
+	pmt->pmt_size = size;
+	pmt->pmt_ptes = (pt_entry_t **)kmem_malloc(sizeof(pt_entry_t*) * size, M_WAITOK);
+	pmt->pmt_addrs = (vm_offset_t *)kmem_malloc(sizeof(vm_offset_t) * size, M_WAITOK);
+}
+
+static void
+pmap_tracebuf_fini(pmap_t pmap)
+{
+	struct pmap_tracebuf *pmt = &pmap->pm_tracebuf;
+
+	if (pmt->pmt_size == 0)
+		return;
+
+	kmem_free((vm_offset_t) pmt->pmt_ptes, sizeof(pt_entry_t) * pmt->pmt_size);
+	kmem_free((vm_offset_t)pmt->pmt_addrs, sizeof(vm_offset_t) * pmt->pmt_size);
+
+	bzero(pmt, sizeof(*pmt));
+}
+
+void
+pmap_tracebuf_fill(pmap_t pmap, vm_offset_t vaddr, pt_entry_t *pte, vm_prot_t prot)
+{
+	struct pmap_tracebuf *pmt = &pmap->pm_tracebuf;
+
+	if (pmt->pmt_size == 0)
+		return;
+
+	if ((prot & VM_PROT_WRITE) == 0)
+		return;
+
+	if (pmt->pmt_size == pmt->pmt_index)
+		return;
+
+	pmt->pmt_addrs[pmt->pmt_index] = vaddr;
+	pmt->pmt_ptes[pmt->pmt_index++] = pte;
+}
+
+void
+pmap_tracebuf_empty(pmap_t pmap)
+{
+	pmap->pm_tracebuf.pmt_index = 0;
+}
+
 static __inline boolean_t
 pmap_type_guest(pmap_t pmap)
 {
@@ -3592,6 +3644,8 @@ pmap_pinit_type(pmap_t pmap, enum pmap_type pm_type, int flags)
 	bzero(&pmap->pm_stats, sizeof pmap->pm_stats);
 	pmap->pm_flags = flags;
 	pmap->pm_eptgen = 0;
+	/* No tracebuffer by default. */
+	bzero(&pmap->pm_tracebuf, sizeof(pmap->pm_tracebuf));
 
 	return (1);
 }
@@ -3906,6 +3960,8 @@ pmap_release(pmap_t pmap)
 	if (pmap->pm_type == PT_X86 &&
 	    (cpu_stdext_feature2 & CPUID_STDEXT2_PKU) != 0)
 		rangeset_fini(&pmap->pm_pkru);
+
+	pmap_tracebuf_fini(pmap);
 }
 
 static int
@@ -6207,6 +6263,8 @@ unchanged:
 #endif
 
 	rv = KERN_SUCCESS;
+	pmap_tracebuf_fill(pmap, va, pte, prot);
+
 out:
 	if (lock != NULL)
 		rw_wunlock(lock);
@@ -6561,6 +6619,8 @@ pmap_enter_quick_locked(pmap_t pmap, vm_offset_t va, vm_page_t m,
 	if (va < VM_MAXUSER_ADDRESS)
 		newpte |= PG_U | pmap_pkru_get(pmap, va);
 	pte_store(pte, newpte);
+	pmap_tracebuf_fill(pmap, va, pte, prot);
+
 	return (mpte);
 }
 

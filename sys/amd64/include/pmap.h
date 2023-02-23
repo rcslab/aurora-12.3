@@ -325,6 +325,13 @@ struct pmap_pcids {
 	uint32_t	pm_gen;
 };
 
+struct pmap_tracebuf {
+	size_t		pmt_size;
+	size_t		pmt_index;
+	vm_offset_t	*pmt_addrs;
+	pt_entry_t 	**pmt_ptes;
+};
+
 /*
  * The kernel virtual address (KVA) of the level 4 page table page is always
  * within the direct map (DMAP) region.
@@ -344,6 +351,7 @@ struct pmap {
 	int			pm_flags;
 	struct pmap_pcids	pm_pcids[MAXCPU];
 	struct rangeset		pm_pkru;
+	struct pmap_tracebuf 	pm_tracebuf;
 };
 
 /* flags */
@@ -471,6 +479,9 @@ int	pmap_pkru_set(pmap_t pmap, vm_offset_t sva, vm_offset_t eva,
 void	pmap_thread_init_invl_gen(struct thread *td);
 int	pmap_vmspace_copy(pmap_t dst_pmap, pmap_t src_pmap);
 
+void pmap_tracebuf_init(pmap_t pmap, size_t size);
+void pmap_tracebuf_fill(pmap_t pmap, vm_offset_t vaddr, pt_entry_t *pte, vm_prot_t prot);
+void pmap_tracebuf_empty(pmap_t pmap);
 #endif /* _KERNEL */
 
 /* Return various clipped indexes for a given VA */
