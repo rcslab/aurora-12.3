@@ -182,6 +182,7 @@ struct vm_object {
 			};
 		} phys;
 	} un_pager;
+	void *fhandle;
 	struct ucred *cred;
 	vm_ooffset_t charge;
 	void *umtx_data;
