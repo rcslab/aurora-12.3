@@ -596,7 +596,7 @@ vm_object_deallocate(vm_object_t object)
                                     * One reference for the child, one for the
                                     * Aurora module.
                                     */
-                                       (backing_object->ref_count == 2)) {
+                                       (backing_object->ref_count == 2 && backing_object->shadow_count == 1)) {
                                        if (!vm_object_trylock_children(object)) {
                                                /*
                                                * Avoid a potential deadlock.
