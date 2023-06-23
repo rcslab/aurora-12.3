@@ -71,6 +71,7 @@
 #include <sys/lock.h>
 #include <sys/sx.h>
 #include <sys/_mutex.h>
+#include <vm/vm_page.h>
 
 /*
  *	Types defined:
@@ -207,6 +208,7 @@ struct vm_map {
 	vm_map_entry_t root;		/* Root of a binary search tree */
 	pmap_t pmap;			/* (c) Physical map */
 	vm_offset_t anon_loc;
+	struct pglist snaplist;		/* Dirty page list */
 	int busy;
 };
 
