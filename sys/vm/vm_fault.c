@@ -116,6 +116,7 @@ __FBSDID("$FreeBSD$");
 #define	VM_FAULT_READ_MAX	(1 + VM_FAULT_READ_AHEAD_MAX)
 
 #define	VM_FAULT_DONTNEED_MIN	1048576
+void (*sls_writefault_hook)(vm_offset_t vaddr, vm_map_t map, vm_page_t m);
 
 struct faultstate {
 	vm_page_t m;
@@ -1423,6 +1424,11 @@ readrest:
 
 	vm_fault_dirty(fs.entry, fs.m, prot, fault_type, fault_flags, true);
 	vm_page_assert_xbusied(fs.m);
+
+	if (sls_writefault_hook != NULL &&
+		((fault_type & (VM_PROT_COPY | VM_PROT_WRITE)) != 0)) {
+		sls_writefault_hook(vaddr, map, fs.m);
+	}
 
 	/*
 	 * Page must be completely valid or it is not fit to
