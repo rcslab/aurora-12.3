@@ -220,6 +220,7 @@ struct vm_page {
 	vm_page_bits_t dirty;		/* map of dirty DEV_BSIZE chunks (M) */
 	TAILQ_ENTRY(vm_page) snapq;	/* list of dirty pages */
 	uint64_t auroid;		/* oid of the Aurora object page was found in (P) */
+	vm_offset_t vaddr;		/* Virtual address found in */
 };
 
 /*
