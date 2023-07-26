@@ -116,7 +116,7 @@ __FBSDID("$FreeBSD$");
 #define	VM_FAULT_READ_MAX	(1 + VM_FAULT_READ_AHEAD_MAX)
 
 #define	VM_FAULT_DONTNEED_MIN	1048576
-void (*sls_writefault_hook)(vm_offset_t vaddr, vm_map_t map, vm_page_t m);
+void (*sls_writefault_hook)(vm_offset_t vaddr, vm_map_t map, vm_page_t m, int prot);
 
 struct faultstate {
 	vm_page_t m;
@@ -335,14 +335,25 @@ vm_fault_soft_fast(struct faultstate *fs, vm_offset_t vaddr, vm_prot_t prot,
 		}
 	}
 #endif
-	rv = pmap_enter(fs->map->pmap, vaddr, m_map, prot, fault_type |
-	    PMAP_ENTER_NOSLEEP | (wired ? PMAP_ENTER_WIRED : 0), psind);
-	if (rv != KERN_SUCCESS)
-		return (rv);
+	if (sls_writefault_hook != NULL) {
+		sls_writefault_hook(vaddr, fs->map, m_map, fault_type);
+	}
+
+	if (vaddr >= 0x6000000000000000 && vaddr < 0x7000000000000000) {
+		pmap_enter(fs->map->pmap, vaddr, fs->m, fault_type,
+		    fault_type | (wired ? PMAP_ENTER_WIRED : 0), 0);
+	} else {
+		rv = pmap_enter(fs->map->pmap, vaddr, m_map, prot, fault_type |
+		    PMAP_ENTER_NOSLEEP | (wired ? PMAP_ENTER_WIRED : 0), psind);
+		if (rv != KERN_SUCCESS)
+			return (rv);
+	}
 	vm_fault_fill_hold(m_hold, m);
 	vm_fault_dirty(fs->entry, m, prot, fault_type, fault_flags, false);
+	/*
 	if (psind == 0 && !wired)
 		vm_fault_prefault(fs, vaddr, PFBAK, PFFOR, true);
+		*/
 	VM_OBJECT_RUNLOCK(fs->first_object);
 	vm_map_lookup_done(fs->map, fs->entry);
 	curthread->td_ru.ru_minflt++;
@@ -1425,9 +1436,8 @@ readrest:
 	vm_fault_dirty(fs.entry, fs.m, prot, fault_type, fault_flags, true);
 	vm_page_assert_xbusied(fs.m);
 
-	if (sls_writefault_hook != NULL &&
-		((fault_type & (VM_PROT_COPY | VM_PROT_WRITE)) != 0)) {
-		sls_writefault_hook(vaddr, map, fs.m);
+	if (sls_writefault_hook != NULL) {
+		sls_writefault_hook(vaddr, map, fs.m, fault_type);
 	}
 
 	/*
@@ -1444,13 +1454,18 @@ readrest:
 	 * back on the active queue until later so that the pageout daemon
 	 * won't find it (yet).
 	 */
-	pmap_enter(fs.map->pmap, vaddr, fs.m, prot,
-	    fault_type | (wired ? PMAP_ENTER_WIRED : 0), 0);
-	if (faultcount != 1 && (fault_flags & VM_FAULT_WIRE) == 0 &&
-	    wired == 0)
-		vm_fault_prefault(&fs, vaddr,
-		    faultcount > 0 ? behind : PFBAK,
-		    faultcount > 0 ? ahead : PFFOR, false);
+	if (vaddr >= 0x6000000000000000 && vaddr < 0x7000000000000000) {
+		pmap_enter(fs.map->pmap, vaddr, fs.m, fault_type,
+		    fault_type | (wired ? PMAP_ENTER_WIRED : 0), 0);
+	} else {
+		pmap_enter(fs.map->pmap, vaddr, fs.m, prot,
+		    fault_type | (wired ? PMAP_ENTER_WIRED : 0), 0);
+		if (faultcount != 1 && (fault_flags & VM_FAULT_WIRE) == 0 &&
+		    wired == 0)
+			vm_fault_prefault(&fs, vaddr,
+			    faultcount > 0 ? behind : PFBAK,
+			    faultcount > 0 ? ahead : PFFOR, false);
+	}
 	VM_OBJECT_WLOCK(fs.object);
 	vm_page_lock(fs.m);
 
