@@ -241,6 +241,7 @@ struct vm_page {
 #define	VPO_UNMANAGED	0x04		/* no PV management for page */
 #define	VPO_SWAPINPROG	0x08		/* swap I/O in progress on page */
 #define	VPO_NOSYNC	0x10		/* do not collect for syncer */
+#define	VPO_SASCOW	0x20		/* sas COW in effect for the page */
 
 /*
  * Busy page implementation details.

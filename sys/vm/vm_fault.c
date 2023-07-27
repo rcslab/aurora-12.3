@@ -117,6 +117,7 @@ __FBSDID("$FreeBSD$");
 
 #define	VM_FAULT_DONTNEED_MIN	1048576
 void (*sls_writefault_hook)(vm_offset_t vaddr, vm_map_t map, vm_page_t m, int prot);
+void (*sas_cow_hook)(vm_page_t *m);
 
 struct faultstate {
 	vm_page_t m;
@@ -339,8 +340,11 @@ vm_fault_soft_fast(struct faultstate *fs, vm_offset_t vaddr, vm_prot_t prot,
 		sls_writefault_hook(vaddr, fs->map, m_map, fault_type);
 	}
 
+	if (sas_cow_hook != NULL)
+		sas_cow_hook(&m);
+
 	if (vaddr >= 0x6000000000000000 && vaddr < 0x7000000000000000) {
-		pmap_enter(fs->map->pmap, vaddr, fs->m, fault_type,
+		pmap_enter(fs->map->pmap, vaddr, m, fault_type,
 		    fault_type | (wired ? PMAP_ENTER_WIRED : 0), 0);
 	} else {
 		rv = pmap_enter(fs->map->pmap, vaddr, m_map, prot, fault_type |
@@ -1223,6 +1227,9 @@ readrest:
 	 * PAGE HAS BEEN FOUND. [Loop invariant still holds -- the object lock
 	 * is held.]
 	 */
+
+	if (sas_cow_hook != NULL)
+		sas_cow_hook(&fs.m);
 
 	/*
 	 * If the page is being written, but isn't already owned by the
