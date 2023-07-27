@@ -117,7 +117,7 @@ __FBSDID("$FreeBSD$");
 
 #define	VM_FAULT_DONTNEED_MIN	1048576
 void (*sls_writefault_hook)(vm_offset_t vaddr, vm_map_t map, vm_page_t m, int prot);
-void (*sas_cow_hook)(vm_page_t *m);
+void (*sas_cow_hook)(vm_offset_t vaddr, vm_page_t *m);
 
 struct faultstate {
 	vm_page_t m;
@@ -341,7 +341,7 @@ vm_fault_soft_fast(struct faultstate *fs, vm_offset_t vaddr, vm_prot_t prot,
 	}
 
 	if (sas_cow_hook != NULL)
-		sas_cow_hook(&m);
+		sas_cow_hook(vaddr, &m);
 
 	if (vaddr >= 0x6000000000000000 && vaddr < 0x7000000000000000) {
 		pmap_enter(fs->map->pmap, vaddr, m, fault_type,
@@ -1229,7 +1229,7 @@ readrest:
 	 */
 
 	if (sas_cow_hook != NULL)
-		sas_cow_hook(&fs.m);
+		sas_cow_hook(vaddr, &fs.m);
 
 	/*
 	 * If the page is being written, but isn't already owned by the
