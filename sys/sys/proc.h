@@ -74,6 +74,10 @@
 #include <machine/cpu.h>
 #endif
 
+#include <vm/vm.h>
+#include <vm/vm_param.h>
+#include <vm/vm_page.h>
+
 /*
  * One structure allocated per session.
  *
@@ -373,6 +377,7 @@ struct thread {
 	struct mdthread td_md;		/* (k) Any machine-dependent fields. */
 #endif
 	int		td_pflags2;	/* (k) Private thread (TDP2_*) flags. */
+	struct pglist	td_snaplist;	
 };
 
 struct thread0_storage {

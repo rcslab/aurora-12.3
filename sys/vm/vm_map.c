@@ -319,9 +319,6 @@ vmspace_container_reset(struct proc *p)
 static inline void
 vmspace_dofree(struct vmspace *vm)
 {
-	vm_map_t map = &vm->vm_map;
-	vm_page_t m;
-
 	CTR1(KTR_VM, "vmspace_free: %p", vm);
 
 	/*
@@ -340,13 +337,6 @@ vmspace_dofree(struct vmspace *vm)
 
 	pmap_release(vmspace_pmap(vm));
 	vm->vm_map.pmap = NULL;
-	while (!TAILQ_EMPTY(&map->snaplist)) {
-		m = TAILQ_FIRST(&map->snaplist);
-		vm_page_lock(m);
-		vm_page_unhold(m);
-		TAILQ_REMOVE(&map->snaplist, m, snapq);
-		vm_page_unlock(m);
-	}
 	uma_zfree(vmspace_zone, vm);
 }
 
@@ -924,7 +914,6 @@ _vm_map_init(vm_map_t map, pmap_t pmap, vm_offset_t min, vm_offset_t max)
 	map->timestamp = 0;
 	map->busy = 0;
 	map->anon_loc = 0;
-	TAILQ_INIT(&map->snaplist);
 }
 
 void

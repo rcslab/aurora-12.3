@@ -75,7 +75,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/domainset.h>
 #include <sys/eventhandler.h>
 #include <sys/lock.h>
-#include <sys/proc.h>
 #include <sys/malloc.h>
 #include <sys/rwlock.h>
 #include <sys/sysctl.h>
@@ -96,6 +95,8 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_radix.h>
 #include <vm/vm_extern.h>
 #include <vm/uma.h>
+
+#include <sys/proc.h>
 
 vm_map_t kernel_map;
 vm_map_t exec_map;
