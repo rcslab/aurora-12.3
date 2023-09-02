@@ -935,6 +935,7 @@ fork1(struct thread *td, struct fork_req *fr)
 		pages = kstack_pages;
 	/* Allocate new proc. */
 	newproc = uma_zalloc(proc_zone, M_WAITOK);
+	newproc->p_auroid = 0;
 	td2 = FIRST_THREAD_IN_PROC(newproc);
 	if (td2 == NULL) {
 		td2 = thread_alloc(pages);
