@@ -704,6 +704,7 @@ struct proc {
 	uint32_t	p_fctl0;	/* (x) ABI feature control, ELF note */
 	u_int		p_amd64_md_flags; /* (c) md process flags P_MD */
 	uint64_t        p_auroid;       /* (c) Aurora partition ID */
+	uint64_t        p_oldoid;       /* (c) Old Aurora ID */
 	LIST_ENTRY(proc) p_aurlist;     /* (c) List of Aurora processes. */
 };
 
