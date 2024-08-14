@@ -275,6 +275,7 @@ thread_init(void *mem, int size, int flags)
 	td->td_kstack = 0;
 	td->td_sel = NULL;
 	TAILQ_INIT(&td->td_snaplist);
+	td->td_objtid = -1;
 	return (0);
 }
 

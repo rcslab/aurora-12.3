@@ -378,6 +378,7 @@ struct thread {
 #endif
 	int		td_pflags2;	/* (k) Private thread (TDP2_*) flags. */
 	struct pglist	td_snaplist;	
+	int		td_objtid;
 };
 
 struct thread0_storage {
